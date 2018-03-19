@@ -8,6 +8,9 @@ Vagrant.configure("2") do |config|
     vb.memory = "512"
   end
 
+  sed_code = ""
+  append_code = ""
+
   # mount all directories in extensions under the wiki
   tar_extract = Gem::Package::TarReader.new(Zlib::GzipReader.open('wiki.tar.gz'))
   tar_extract.each do |entry|
@@ -15,7 +18,15 @@ Vagrant.configure("2") do |config|
       wiki_path_from_www_root = match.captures[0] # e.g. public_html/wiki
       Dir["extensions/*/"].each{|d|
         ext = d.chomp('/') # e.g. "extentions/SampleExtension"
+        ext_basename = ext.sub(/^extensions\//, '')
         config.vm.synced_folder ext, "/var/www/#{wiki_path_from_www_root}/#{ext}"
+        Dir[ext+"/extension.json"].each{|f|
+            if File.file?(f)
+                #enable extension in the LocalSettings.php
+                sed_code += "-e '/^\\s*#*\\s*wfLoadExtension(\\s*\'#{ext_basename}\'\\s*);\\s*$/d' "
+                append_code += "wfLoadExtension( '#{ext_basename}' );\n"
+            end
+        }
       }
       break
     end
@@ -33,15 +44,22 @@ Vagrant.configure("2") do |config|
     install -m=644 /vagrant/apache2.conf /etc/apache2/
     systemctl reload apache2 # required for php to see php-mbstring and php-xml installed
 
-    rm -fr /var/www/*
+    find /var/www -mindepth 1 -xdev -delete 2>/dev/null
     tar -C /var/www -xzf /vagrant/wiki.tar.gz
     chown -R www-data: /var/www/public_html
     (cd /var/www && ln -s public_html html)
-    find /var/www -name LocalSettings.php -execdir sed -i \
-        -e 's/^\\$wgServer\\s*=.*/$wgServer = "http:\\/\\/127.0.0.1:8080";/' \
-        -e 's/^\\$wgDBuser\\s*=.*/$wgDBuser = "root";/' \
-        -e 's/^\\$wgDBpassword\\s*=.*/$wgDBpassword = "root";/' \
-    {} \\;
+    patch_files() {
+        for file; do
+            sed -i $file \
+                -e 's/^\\$wgServer\\s*=.*/$wgServer = "http:\\/\\/127.0.0.1:8080";/' \
+                -e 's/^\\$wgDBuser\\s*=.*/$wgDBuser = "root";/' \
+                -e 's/^\\$wgDBpassword\\s*=.*/$wgDBpassword = "root";/' \
+                #{sed_code}
+            echo -n "#{append_code}" >> $file
+        done
+    }
+    export -f patch_files
+    find /var/www -name LocalSettings.php -execdir bash -c 'patch_files {}' \\;
     zcat /vagrant/wiki.sql.gz | mysql -uroot -proot
   SHELL
 end
