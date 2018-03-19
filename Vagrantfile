@@ -60,6 +60,9 @@ Vagrant.configure("2") do |config|
     }
     export -f patch_files
     find /var/www -name LocalSettings.php -execdir bash -c 'patch_files {}' \\;
-    zcat /vagrant/wiki.sql.gz | mysql -uroot -proot
+    echo "[client]
+user=root
+password=root" > ~/.my.cnf
+    zcat /vagrant/wiki.sql.gz | mysql
   SHELL
 end
