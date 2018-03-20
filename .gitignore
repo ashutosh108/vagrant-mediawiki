@@ -2,3 +2,4 @@ wiki.sql.gz
 wiki.tar.gz
 .vagrant
 *.log
+extensions/
