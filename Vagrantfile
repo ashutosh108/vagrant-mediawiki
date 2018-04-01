@@ -46,7 +46,9 @@ Vagrant.configure("2") do |config|
 
     find /var/www -mindepth 1 -xdev -delete 2>/dev/null
     tar -C /var/www -xzf /vagrant/wiki.tar.gz
-    chown -R www-data: /var/www/public_html
+    chown -R vagrant:www-data /var/www/public_html
+    chmod -R g+r /var/www/public_html
+    find /var/www/public_html -type d -execdir chmod g+x {} \+
     (cd /var/www && ln -s public_html html)
     patch_files() {
         for file; do
