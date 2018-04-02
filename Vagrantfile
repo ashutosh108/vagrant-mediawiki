@@ -34,10 +34,12 @@ Vagrant.configure("2") do |config|
   tar_extract.close
 
   config.vm.provision "shell", inline: <<-SHELL
-    apt-get update
+    # this includes apt-get update, so no need to do that separately
+    curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
+
     debconf-set-selections <<< 'mysql-server mysql-server/root_password password root'
     debconf-set-selections <<< 'mysql-server mysql-server/root_password_again password root'
-    PKGS="apache2 libapache2-mod-php mysql-client mysql-server php-mbstring php-xml php-mysql"
+    PKGS="apache2 libapache2-mod-php mysql-client mysql-server php-mbstring php-xml php-mysql nodejs"
     apt-get -y --no-install-recommends install $PKGS
 
     a2enmod rewrite
